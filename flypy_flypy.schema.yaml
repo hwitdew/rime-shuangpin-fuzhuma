@@ -4,94 +4,44 @@
 
 schema:
   schema_id: flypy_flypy
-  name: 小鹤双拼+鹤形辅助
+  name: 鹤形+小鹤双拼
   version: "2024-04-24"
   author:
-    - Functoreality 
+    - Functoreality
     - Dvel
     - gaboolic （裁缝)
   description: |
-    小鹤双拼+辅助码 https://github.com/gaboolic/rime-shuangpin-fuzhuma
+    小鹤双拼+辅助码 只支持8000字左右 https://github.com/gaboolic/rime-shuangpin-fuzhuma
   dependencies:
-    - chaizi
+    - reverse_moqima
     - radical_flypy
     - stroke
     - zrlf
     - emoji
     - easy_en
+    - jp_sela
 
-switches:
-  - name: ascii_mode
-    states: [ 中文, 西文 ]
-  - name: full_shape
-    states: [ 半角, 全角 ]
-  - name: traditionalization
-    states: [ 简, 繁 ]
-  - name: emoji
-    states: [ 💀, 😄 ]
-  - name: ascii_punct
-    states: [ 。，, ．， ]
-
-engine:
-  processors:
-    - ascii_composer
-    - recognizer
-    - key_binder
-    - speller
-    - punctuator
-    - selector
-    - navigator
-    - express_editor
-  segmentors:
-    - ascii_segmentor
-    - matcher
-    - abc_segmentor
-    - punct_segmentor
-    - affix_segmentor@verbatim ## not as the last of this list
-    - fallback_segmentor
-  translators:
-    - punct_translator
-    - table_translator@custom_phrase
-    - reverse_lookup_translator
-    - reverse_lookup_translator@reverse_stroke
-    - reverse_lookup_translator@reverse_zrlf
-    - reverse_lookup_translator@reverse_cj
-    - script_translator
-    - lua_translator@date_translator    # 时间、日期、星期
-    - lua_translator@lunar              # 农历
-    - table_translator@easy_en_simp ## 添加注释后：停用单词输入
-    - lua_translator@unicode            # Unicode
-    - lua_translator@number_translator  # 数字、金额大写
-  filters:
-    - lua_filter@long_word_filter                   # 长词优先（顺序要求：长词优先 > Emoji）
-    - simplifier@emoji                              # Emoji
-    - simplifier@traditionalize                     # 简繁切换
-    - uniquifier
-
-# Lua 配置: 日期、时间、星期、ISO 8601、时间戳的触发关键字
-date_translator:
-  date: date            # 日期： 2022-11-29
-  time: time            # 时间： 18:13
-  week: week            # 星期： 星期二
-  datetime: datetime    # ISO 8601： 2022-11-29T18:13:11+08:00
-  timestamp: timestamp  # 时间戳： 1669716794
-
-# Lua 配置：农历的触发关键字
-lunar: anl  # 农历： 二〇二三年冬月二十 癸卯年（兔）冬月二十
-  
-# Lua 配置：长词优先
-# 提升 count 个词语，插入到第 idx 个位置。
-# 示例：将 2 个词插入到第 4、5 个候选项，输入 jie 得到「1接 2解 3姐 4饥饿 5极恶」
-long_word_filter:
-  count: 2
-  idx: 1
+__include: moqi.yaml:/switches_engine
+__include: moqi.yaml:/phrase # 置顶
+__include: moqi.yaml:/reverse #反查配置
+__include: moqi.yaml:/opencc_config # 拆分 英汉互译 火星文
+__include: moqi.yaml:/punctuator # 标点
+__include: moqi.yaml:/guide # 引导前缀配置
 
 speller:
-  alphabet: zyxwvutsrqponmlkjihgfedcba[
-  initials: zyxwvutsrqponmlkjihgfedcba
+  max_code_length: 5
+  # table_translator翻译器，支持自动上屏。例如 “zmhu”可以自动上屏“怎么回事”
+  auto_select: true
+  auto_select_pattern: ^[a-z]+/|^[a-df-zA-DF-Z]\w{3}|^e\w{4}
+  # 如果不想让什么标点直接上屏，可以加在 alphabet，或者编辑标点符号为两个及以上的映射
+  alphabet: zyxwvutsrqponmlkjihgfedcbaZYXWVUTSRQPONMLKJIHGFEDCBA[/|
+  # initials 定义仅作为始码的按键，排除 ` 让单个的 ` 可以直接上屏
+  initials: zyxwvutsrqponmlkjihgfedcbaZYXWVUTSRQPONMLKJIHGFEDCBA
+  # 第一位<空格>是拼音之间的分隔符；第二位<'>表示可以手动输入单引号来分割拼音。
   delimiter: " '"
   ## speller 未允许 aj 表示 an
   algebra:
+    # 这一段是为了支持加载全拼词库
     # - xform/^([aoe])$/$1$1/
     # - xform/^(ang)$/ah/
     # - xform/^([^\[]*)iu$/$1Q/
@@ -129,145 +79,125 @@ speller:
     # - derive/^i([a-z])/c$1/
     # - derive/^u([a-z])/s$1/
 
-    - derive/^(..)[[].+$/$1/
-    - derive/^(..[[].).+$/$1/
-    # - derive/^([jqxy])u/$1v/
-    - derive/[[]//
+    # - derive/^([jqxy])u/$1v/ # 开启jv=ju的模式
+
+    - derive|^(.+)[[](\w)(\w)$|$1| # 纯双拼的情况
+    - derive|^(.+)[[](\w)(\w)$|$1$2| # 双拼+一位辅助码的情况
+    - derive|^(.+)[[](\w)(\w)$|$1[$2| # 双拼+[一位辅助码的情况
+    - abbrev|^(.+)[[](\w)(\w)$|$1$2$3| # 双拼+2位辅助码的情况，abbrev类型不可以整句内输入2位辅助码，必须加o或/
+    - derive|^(.+)[[](\w)(\w)$|$1$2$3o| # 整句模式下，输入syffo 出单字 增强单字性能
+    - derive|^(.+)[[](\w)(\w)$|$1$2$3/| # 整句模式下，输入syff/ 出单字 增强单字性能
+    # - derive/[[]// ## 取消注释后：直接引导2位辅助码；否则只能引导1位辅助码或者2位辅助码加/
 
     ## 飞键 可选择性开启
-    # - derive/^([yh])j/$1q/
-    # - derive/^qx/qw/
+    - derive/^([y])j/$1f/
+    - derive/^qx/qw/
+    - derive/^xq/xo/
+    - derive/^qq/qo/
+    - derive/^ww/wi/
+    - derive/^y([a-df-qs-z])/e$1/ # y -> e互击
+    - derive/^j([a-twyz])/f$1/ # j -> f互击
     # - derive/^jn/jv/
     # - derive/^mn/mv/
     # - derive/^jm/jz/
-    # - derive/^([y])h/$1g/
+    - derive/^([y])h/$1g/
     # - derive/^([rgv])f/$1m/
-    # - derive/^([rgv])c/$1n/
+    - derive/^([rgv])c/$1n/
 
+user_dict_set:
+  dictionary: flypy_flypy.extended
+  initial_quality: 0
+  enable_completion: false
+  enable_sentence: false
+  ##  默认为不超过 2 个字的候选项显示输入码；将 2 改为 0 可关闭编码提示，
+  ##  改为 1 则是只显示单字的输入码，依此类推。
+  spelling_hints: 1
+  comment_format:
+    - "xform/(^|[ '])[^[]+[[]/$1/" ## 编码提示只显示辅助码部分
+  enable_user_dict: true # 是否开启自动调频
+  user_dict: user_ff.custom.dict
+  db_class: tabledb
 
+# 自定义词典加词(ac引导)
+add_user_dict:
+  tag: add_user_dict
+  dictionary: flypy_flypy.extended
+  initial_quality: -1
+  user_dict: user_ff.custom.dict
+# ↓ 用户词典格式，tabledb（文本） 或 userdb （二进制）。
+  db_class: tabledb
+  enable_charset_filter: false
+  enable_completion: true
+  enable_encoder: true
+  enable_sentence: true
+  enable_user_dict: true
+  encode_commit_history: false
+  preedit_format:
     
-    
+  comment_format:
+    - "xform/(^|[ '])[^[]+[[]/$1/" ## 编码提示只显示辅助码部分
+  prefix: "ac"
+  tips: "〔自造词〕"
 
 translator:
   dictionary: flypy_flypy.extended
+  initial_quality: 10000
   enable_completion: false
   ##  默认为不超过 2 个字的候选项显示输入码；将 2 改为 0 可关闭编码提示，
   ##  改为 1 则是只显示单字的输入码，依此类推。
-  spelling_hints: 2
+  spelling_hints: 1
   comment_format:
     - "xform/(^|[ '])[^[]+[[]/$1/" ## 编码提示只显示辅助码部分
 
-  enable_user_dict: false # 是否开启自动调频 
-  # preedit_format:
-    # - "xform/((^|[ '])[bpmfdtnljqx])n/$1iao/"
-    # - "xform/((^|[ '])\\w)g/$1eng/"
-    # - "xform/((^|[ '])\\w)q/$1iu/"
-    # - "xform/((^|[ '])\\w)w/$1ei/"
-    # - "xform/((^|[ '])[dtnlgkhjqxyvuirzcs])r/$1uan/"
-    # - "xform/((^|[ '])\\w)t/$1ve/"
-    # - "xform/((^|[ '])\\w)y/$1un/"
-    # - "xform/((^|[ '])[dtnlgkhvuirzcs])o/$1uo/"
-    # - "xform/((^|[ '])\\w)p/$1ie/"
-    # - "xform/((^|[ '])[jqx])s/$1iong/"
-    # - "xform/((^|[ '])\\w)s/$1ong/"
-    # - "xform/((^|[ '])\\w)d/$1ai/"
-    # - "xform/((^|[ '])\\w)f/$1en/"
-    # - "xform/((^|[ '])\\w)h/$1ang/"
-    # - "xform/((^|[ '])\\w)j/$1an/"
-    # - "xform/((^|[ '])[gkhvuirzcs])k/$1uai/"
-    # - "xform/((^|[ '])\\w)k/$1ing/"
-    # - "xform/((^|[ '])[jqxnl])l/$1iang/"
-    # - "xform/((^|[ '])\\w)l/$1uang/"
-    # - "xform/((^|[ '])\\w)z/$1ou/"
-    # - "xform/((^|[ '])[gkhvuirzcs])x/$1ua/"
-    # - "xform/((^|[ '])\\w)x/$1ia/"
-    # - "xform/((^|[ '])\\w)c/$1ao/"
-    # - "xform/((^|[ '])[dtgkhvuirzcs])v/$1ui/"
-    # - "xform/((^|[ '])\\w)b/$1in/"
-    # - "xform/((^|[ '])\\w)m/$1ian/"
-    # - "xform/(^|[ '])([aoe])\\2(\\w)/$1$2$3/"
+  enable_user_dict: false # 是否开启自动调频
+  preedit_format:
+    # 复制用户输入, 一份转大写保持原样, 一份由正则转为全拼显示
+    # - xform/(^.*$)/\U$1\E\t => $1 <=/
+    # # 小鹤双拼转全拼, 忽略辅码
+    # - xform/([ '][aoe])(\w)\w{0,2}/$1$2/
+    # - xform/([ ']\w)([aeiou])\w{0,2}/$1$2/
+    # - xform/([ '][bpmfdtnljqx])n\w{0,2}/$1iao/
+    # - xform/([ ']\w)g\w{0,2}/$1eng/
+    # - xform/([ ']\w)q\w{0,2}/$1iu/
+    # - xform/([ ']\w)w\w{0,2}/$1ei/
+    # - xform/([ '][dtnlgkhjqxyvuirzcs])r\w{0,2}/$1uan/
+    # - xform/([ ']\w)t\w{0,2}/$1ve/
+    # - xform/([ ']\w)y\w{0,2}/$1un/
+    # - xform/([ '][dtnlgkhvuirzcs])o\w{0,2}/$1uo/
+    # - xform/([ ']\w)p\w{0,2}/$1ie/
+    # - xform/([ '][jqx])s\w{0,2}/$1iong/
+    # - xform/([ ']\w)s\w{0,2}/$1ong/
+    # - xform/([ ']\w)d\w{0,2}/$1ai/
+    # - xform/([ ']\w)f\w{0,2}/$1en/
+    # - xform/([ ']\w)h\w{0,2}/$1ang/
+    # - xform/([ ']\w)j\w{0,2}/$1an/
+    # - xform/([ '][gkhvuirzcs])k\w{0,2}/$1uai/
+    # - xform/([ ']\w)k\w{0,2}/$1ing/
+    # - xform/([ '][jqxnl])l\w{0,2}/$1iang/
+    # - xform/([ ']\w)l\w{0,2}/$1uang/
+    # - xform/([ ']\w)z\w{0,2}/$1ou/
+    # - xform/([ '][gkhvuirzcs])x\w{0,2}/$1ua/
+    # - xform/([ ']\w)x\w{0,2}/$1ia/
+    # - xform/([ ']\w)c\w{0,2}/$1ao/
+    # - xform/([ '][dtgkhvuirzcs])v\w{0,2}/$1ui/
+    # - xform/([ ']\w)b\w{0,2}/$1in/
+    # - xform/([ ']\w)m\w{0,2}/$1ian/
     # - "xform/(^|[ '])v/$1zh/"
     # - "xform/(^|[ '])i/$1ch/"
     # - "xform/(^|[ '])u/$1sh/"
-    # - "xform/((^|[ '])[jqxy])v/$1u/"
-    # - "xform/((^|[ '])[nl])v/$1ü/"
-
-custom_phrase:
-  dictionary: ""
-  user_dict: custom_phrase
-  db_class: stabledb
-  enable_completion: false
-  enable_sentence: false
-  initial_quality: 1
+    # - xform/([ '][jqxy])v\w{0,2}/$1u/
+    # - xform/([ '][nl])v\w{0,2}/$1ü/
+    # # 双拼编码大写转回小写
+    # - xform/(^[^a-z=<>]*)/\L$1\E/
+    # - xform/=> */[/
+    # - xform/ *<=/]/
 
 reverse_lookup:
-  dictionary: radical_flypy # https://github.com/mirtlecn/rime-radical-pinyin
-  enable_completion: true
-  prefix: "az"
-  suffix: "'"
-  tips: 〔部件组字〕
-  preedit_format:
-    # - xlit/hspnz/一丨丿丶乙/
+  tags: [ reverse_moqima,radical_flypy,reverse_stroke,reverse_zrlf,reverse_cj]
+  overwrite_comment: true
+  dictionary: flypy_flypy.extended # 提示码词表
 
-reverse_zrlf:
-  tag: reverse_zrlf
-  dictionary: zrlf
-  enable_completion: true
-  prefix: "alf"
-  suffix: "'"
-  tips: 〔自然兩分〕
-  preedit_format:
-    # - xlit/hspnz/一丨丿丶乙/
-
-reverse_cj:
-  tag: reverse_cj
-  dictionary: cangjie5
-  enable_completion: true
-  prefix: "acj"
-  suffix: "'"
-  tips: 〔仓颉〕
-  preedit_format:
-    - xform/^acj/仓颉5:/
-    - xlit|abcdefghijklmnopqrstuvwxyz|日月金木水火土竹戈十大中一弓人心手口尸廿山女田難卜符|
-
-reverse_stroke:
-  tag: reverse_stroke
-  dictionary: stroke # stroke
-  enable_completion: true
-  prefix: "ab"
-  suffix: "'"
-  tips: 〔筆畫hspnz〕 # 〔筆畫〕
-  preedit_format:
-    - xlit/hspnz/一丨丿丶乙/
-
-
-# Emoji
-emoji:
-  option_name: emoji
-  opencc_config: emoji.json
-  inherit_comment: false  # 在 corrector.lua 及反查中，emoji 返回空注释
-
-
-# 简繁切换
-traditionalize:
-  option_name: traditionalization
-  opencc_config: s2t.json  # s2t.json | s2hk.json | s2tw.json | s2twp.json
-  tips: none               # 转换提示: all 都显示 | char 仅单字显示 | none 不显示。
-  tags: [ abc, number, gregorian_to_lunar ]  # 限制在对应 tag，不对其他如反查的内容做简繁转换
-  
-# 标点符号
-# punctuator 下面有三个子项：
-#   full_shape 全角标点映射
-#   half_shape 半角标点映射
-#   symbols    Rime 的预设配置是以 '/' 前缀开头输出一系列字符，自定义的 symbols_caps_v.yaml 修改成了 'V' 开头。
-punctuator:
-  full_shape:
-    __include: default:/punctuator/full_shape  # 从 default.yaml 导入配置
-  half_shape:
-    __include: default:/punctuator/half_shape  # 从 default.yaml 导入配置
-  symbols:
-    __include: symbols_caps_v:/symbols         # 从 symbols_caps_v.yaml 导入配置
-
+# 快捷键
 key_binder:
   import_preset: default
   bindings:
@@ -275,48 +205,43 @@ key_binder:
     - { when: composing, accept: Control+m, send: Return }
     - { when: composing, accept: Control+w, send: Control+BackSpace }
     - { when: has_menu, accept: semicolon, send: 2 }
-    - { when: has_menu, accept: slash, send: 3 }
+    # - { when: has_menu, accept: slash, send: 3 } # 用/进行选3
     - { when: composing, accept: Control+i, send: Shift+Right }
     - { when: composing, accept: Control+o, send: Shift+Left }
-    ## 对以下4行取消注释后：启用光标回退至特定音节后、补充辅助码的功能
-    ## （自然码等其他双拼用户请在 pinyin_switch.yaml 中设置）
-    #- { when: composing, accept: Control+1, send_sequence: '{Home}{Shift+Right}[' }
-    #- { when: composing, accept: Control+2, send_sequence: '{Home}{Shift+Right}{Shift+Right}[' }
-    #- { when: composing, accept: Control+3, send_sequence: '{Home}{Shift+Right}{Shift+Right}{Shift+Right}[' }
-    #- { when: composing, accept: Control+4, send_sequence: '{Home}{Shift+Right}{Shift+Right}{Shift+Right}{Shift+Right}[' }
-
-recognizer:
-  # import_preset: default
-  patterns:
-    uppercase: "^[A-Z].*$"
-    punct: '^/[015-9A-Za-z]+$' ## use "/er" instead of "/2"
-    ## 拆字、笔画、仓颉: 
-    reverse_lookup: "^az[a-z]*'?$" # "[[]b[a-z]*'?$"
-    reverse_stroke: "^ab[A-Za-z]*$"
-    reverse_cj: "^acj[A-Za-z]*$"
-    reverse_zrlf: "^alf[A-Za-z]*$"
-
-    easy_en_simp: "^aw[a-z]*"
-    unicode: "^U[a-f0-9]+"              # 脚本将自动获取第 2 个字符 U 作为触发前缀，响应 lua_translator@unicode，输出 Unicode 字符
-    number: "^R[0-9]+[.]?[0-9]*"        # 脚本将自动获取第 2 个字符 R 作为触发前缀，响应 lua_translator@number_translator，数字金额大写
-    gregorian_to_lunar: "^N[0-9]{1,8}"  # 脚本将自动获取第 2 个字符 N 作为触发前缀，响应 lua_translator@lunar，公历转农历，输入 N20240115 得到「二〇二三年腊月初五」
-
-menu:
-  page_size: 8
+    - { when: has_menu, accept: "Control+e", toggle: chinese_english }
 
 
+    - { match: "[a-z]{1,3}", accept: Tab,  send_sequence: "/1" }
+    - { match: "[a-z]{1,3}", accept: "/",  send_sequence: "/1" }
+    - { match: "[a-z]{1,3}", accept: ".",  send_sequence: "/1" }
+    # - { when: composing, match: "[a-z]{2}", accept: Tab, send: '|' }
 
+    ## 启用光标回退至特定音节后、补充辅助码的功能。补充完辅助码后，可以再按一次tab回到整句检查
+    - { when: composing, accept: Control+1, send_sequence: '{Home}{Shift+Right}[' }
+    - { when: composing, accept: Control+2, send_sequence: '{Home}{Shift+Right}{Shift+Right}[' }
+    - { when: composing, accept: Control+3, send_sequence: '{Home}{Shift+Right}{Shift+Right}{Shift+Right}[' }
+    - { when: composing, accept: Control+4, send_sequence: '{Home}{Shift+Right}{Shift+Right}{Shift+Right}{Shift+Right}[' }
+    - { when: composing, accept: Control+5, send_sequence: '{Home}{Shift+Right}{Shift+Right}{Shift+Right}{Shift+Right}{Shift+Right}[' }
+    - { when: composing, accept: Control+6, send_sequence: '{Home}{Shift+Right}{Shift+Right}{Shift+Right}{Shift+Right}{Shift+Right}{Shift+Right}[' }
+    - { when: composing, accept: Control+7, send_sequence: '{Home}{Shift+Right}{Shift+Right}{Shift+Right}{Shift+Right}{Shift+Right}{Shift+Right}{Shift+Right}[' }
 
-easy_en_simp:
-  tag: easy_en_simp
-  dictionary: easy_en
-  enable_completion: true
+# 启用語言模型
+#__include: moqi:/octagram/enable_for_sentence
+
+custom_phrase_mqzg:
+  dictionary: ""
+  user_dict: custom_phrase/custom_phrase_xhzg
+  db_class: stabledb
   enable_sentence: false
-  prefix: "aw"
-  # suffix: "'"
-  tips: "英文单词（可去元音）"
-  spelling_hints: 9
-  comment_format:
-    - xform/^.+$//
-    
+  enable_completion: false
+  initial_quality: -1 #本表词和系统词重码居后
 
+
+# 3码出简让全 如果不需要，可以删掉。有错码，反馈给我
+custom_phrase_3_code:
+  dictionary: ""
+  user_dict: custom_phrase/custom_phrase_cjrq_for_xh
+  db_class: stabledb
+  enable_sentence: false
+  enable_completion: false
+  initial_quality: 100000 #本表词和系统词重码居后

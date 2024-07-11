@@ -148,10 +148,10 @@ def update_missing_encodings(file_path, write_file_path, dict_data):
     write_file(write_file_path, updated_content)
 
 dict_data = {}
-file_list = ['8105.dict.yaml', '41448.dict.yaml', 'base.dict.yaml', 'ext.dict.yaml', 'others.dict.yaml', 'tencent.dict.yaml']
+file_list = ['8105.dict.yaml', '41448.dict.yaml', 'base.dict.yaml', 'ext.dict.yaml', 'others.dict.yaml']
 # file_list = [ 'tencent.dict.yaml']
 # Load the dict data from the provided file
-with open('./moran.chars.dict.yaml', 'r', encoding='utf-8') as dict_file:
+with open('./program/moran.chars.dict.yaml', 'r', encoding='utf-8') as dict_file:
     for line in dict_file:
         if "\t" in line:
             params = line.strip().split('\t')
@@ -160,6 +160,9 @@ with open('./moran.chars.dict.yaml', 'r', encoding='utf-8') as dict_file:
             if "'" not in encoding:
                 encoding_pre = encoding[:2]
                 encoding_post = encoding[3:]
+                
+                # if character in '去我而人他有是出哦配啊算的非个和就可了在小从这吧你吗':
+                #     encoding_post = encoding_post[0] + encoding_post[1].upper()
                 if character not in dict_data:
                     dict_data[character] = encoding_post
 
@@ -169,7 +172,8 @@ print("𬱖 " + dict_data['𬱖'])
 
 for file_name in file_list:
     # File paths
-    yaml_file_path = os.path.join('cn_dicts', file_name)
+    cn_dicts_path = os.path.expanduser("~/vscode/rime-frost/cn_dicts")
+    yaml_file_path = os.path.join(cn_dicts_path, file_name)
     write_file_path = os.path.join('cn_dicts_zrm', file_name)
 
     print(yaml_file_path)

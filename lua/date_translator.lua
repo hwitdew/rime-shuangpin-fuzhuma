@@ -3,7 +3,7 @@
 -- 提高权重的原因：因为在方案中设置了大于 1 的 initial_quality，导致 rq sj xq dt ts 产出的候选项在所有词语的最后。
 local function yield_cand(seg, text)
     local cand = Candidate('', seg.start, seg._end, text, '')
-    cand.quality = 100
+    cand.quality = 1000000
     yield(cand)
 end
 
@@ -50,7 +50,7 @@ function M.func(input, seg, env)
         yield_cand(seg, os.date('%Y-%m-%d %H:%M:%S', current_time))
         yield_cand(seg, os.date('%Y-%m-%dT%H:%M:%S+08:00', current_time))
         yield_cand(seg, os.date('%Y%m%d%H%M%S', current_time))
-
+        yield_cand(seg, os.date('%Y年%m月%d日%H:%M:%S', current_time):gsub('年0', '年'):gsub('月0','月'))
     -- 时间戳（十位数，到秒，示例 1650861664）
     elseif (input == M.timestamp) then
         local current_time = os.time()

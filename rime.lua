@@ -20,6 +20,12 @@ unicode = require("unicode")
 -- 数字、人民币大写，R 开头
 number_translator = require("number_translator")
 
+-- 计算器
+calculator = require("calculator")
+
+-- emoji降低排序位置
+reduce_emoji_filter = require("reduce_emoji_filter")
+
 -- filters:
 
 -- 错音错字提示
